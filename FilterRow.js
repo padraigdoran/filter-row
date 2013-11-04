@@ -60,6 +60,15 @@ Ext.ux.grid.FilterRow = Ext.extend(Ext.util.Observable, {
    */
   refilterOnStoreUpdate: false,
   
+  /**
+   * @cfg {int} defaultTimeToWait
+   * the time in miliseconds to wait after the user types a key before
+   * filtering is applied. This is the default time that will be applied
+   * to all fields to be filtered. Each field can have an override by passing
+   * a config of 'timeToWait' in the field's 'filter' config (default 0)
+   */
+  defaultTimeToWait: 0,
+  
   constructor: function(conf) {
     Ext.apply(this, conf || {});
     
@@ -108,7 +117,7 @@ Ext.ux.grid.FilterRow = Ext.extend(Ext.util.Observable, {
     var Filter = Ext.ux.grid.FilterRowFilter;
     this.eachFilterColumn(function(col) {
       if (!(col.filter instanceof Filter)) {
-        col.filter = new Filter(col.filter);
+        col.filter = new Filter(col.filter, this.defaultTimeToWait);
       }
       col.filter.on("change", this.onFieldChange, this);
     });
@@ -335,6 +344,20 @@ Ext.preg("filterrow", Ext.ux.grid.FilterRow);
  */
 Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
   /**
+   * @cfg {int} typingTimerId
+   * timer id of timer for kicking off the filtering function
+   */
+  typingTimerId: undefined,
+
+  /**
+   * @cfg {int} timeToWait
+   * the time in miliseconds to wait after the user types a key before
+   * filtering is applied. Value comes from defaultTimeToWait if
+   * timeToWait is not set on this config (default undefined)
+   */
+  timeToWait: undefined,
+  
+  /**
    * @cfg {Ext.form.Field} field
    * Instance of some form field to use for filtering, or just a
    * config object - xtype will default to "textfield".  Defaults to
@@ -387,8 +410,12 @@ Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
    */
   showFilterIcon: true,
   
-  constructor: function(config) {
+  constructor: function(config, defaultTimeToWait) {
     Ext.apply(this, config);
+    
+    if (this.timeToWait == undefined) {
+      this.timeToWait = defaultTimeToWait;
+    }
     
     if (!this.field) {
       this.field = new Ext.form.TextField({enableKeyEvents: true});
@@ -406,11 +433,20 @@ Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
       "change"
     );
     Ext.each(this.fieldEvents, function(event) {
-      this.field.on(event, this.fireChangeEvent, this);
+      this.field.on(event, this.startTimer, this);
     }, this);
   },
   
+  startTimer: function() {
+    clearInterval(this.typingTimerId);
+    var me = this;
+    this.typingTimerId = setInterval(function() {
+      me.fireChangeEvent();
+    }, this.timeToWait);
+  },
+  
   fireChangeEvent: function() {
+    clearInterval(this.typingTimerId);
     this.fireEvent("change");
   },
   
