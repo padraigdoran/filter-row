@@ -464,7 +464,6 @@ Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
       this.functionToCall = this.fireChangeEvent;
     }
     
-    this.functionToCall = (this.delayFiltering) ? this.startTimer : this.fireChangeEvent;
     Ext.each(this.fieldEvents, function(event) {
       this.field.on(event, this.functionToCall, this);
     }, this);
