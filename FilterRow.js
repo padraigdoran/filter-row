@@ -69,6 +69,12 @@ Ext.ux.grid.FilterRow = Ext.extend(Ext.util.Observable, {
    */
   defaultTimeToWait: 0,
   
+  /**
+   * @cfg {boolean} globalDelayFiltering
+   * should the delay task be activated (default true)
+   */
+  globalDelayFiltering: true,
+  
   constructor: function(conf) {
     Ext.apply(this, conf || {});
     
@@ -117,7 +123,7 @@ Ext.ux.grid.FilterRow = Ext.extend(Ext.util.Observable, {
     var Filter = Ext.ux.grid.FilterRowFilter;
     this.eachFilterColumn(function(col) {
       if (!(col.filter instanceof Filter)) {
-        col.filter = new Filter(col.filter, this.defaultTimeToWait);
+        col.filter = new Filter(col.filter, this.defaultTimeToWait, this.globalDelayFiltering);
       }
       col.filter.on("change", this.onFieldChange, this);
     });
@@ -358,6 +364,18 @@ Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
   timeToWait: undefined,
   
   /**
+   * @cfg {boolean} delayFiltering
+   * should the delay task be activated (default undefined)
+   */
+  delayFiltering: undefined,
+
+  /**
+   * @cfg {string} functionToCall
+   * function to call depending on if delay is in use or not (default undefined)
+   */
+  functionToCall: undefined,
+  
+  /**
    * @cfg {Ext.form.Field} field
    * Instance of some form field to use for filtering, or just a
    * config object - xtype will default to "textfield".  Defaults to
@@ -410,11 +428,17 @@ Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
    */
   showFilterIcon: true,
   
-  constructor: function(config, defaultTimeToWait) {
+  constructor: function(config, defaultTimeToWait, globalDelayFiltering) {
     Ext.apply(this, config);
     
     if (this.timeToWait == undefined) {
       this.timeToWait = defaultTimeToWait;
+    }
+    
+    if (!globalDelayFiltering){
+      this.delayFiltering = false;
+    } else if (this.delayFiltering == undefined) {
+      this.delayFiltering = globalDelayFiltering;
     }
     
     if (!this.field) {
@@ -432,8 +456,9 @@ Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
        */
       "change"
     );
+    this.functionToCall = (this.delayFiltering) ? this.startTimer : this.fireChangeEvent;
     Ext.each(this.fieldEvents, function(event) {
-      this.field.on(event, this.startTimer, this);
+      this.field.on(event, this.functionToCall, this);
     }, this);
   },
   
@@ -441,12 +466,12 @@ Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
     clearInterval(this.typingTimerId);
     var me = this;
     this.typingTimerId = setInterval(function() {
+      clearInterval(me.typingTimerId);
       me.fireChangeEvent();
     }, this.timeToWait);
   },
   
   fireChangeEvent: function() {
-    clearInterval(this.typingTimerId);
     this.fireEvent("change");
   },
   
