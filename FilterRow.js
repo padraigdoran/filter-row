@@ -350,10 +350,10 @@ Ext.preg("filterrow", Ext.ux.grid.FilterRow);
  */
 Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
   /**
-   * @cfg {int} typingTimerId
-   * timer id of timer for kicking off the filtering function
+   * @cfg {Ext.util.DelayedTask} delayTask
+   * Ext DelayedTask of timer for kicking off the filtering function
    */
-  typingTimerId: undefined,
+  delayTask: undefined,
 
   /**
    * @cfg {int} timeToWait
@@ -456,6 +456,14 @@ Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
        */
       "change"
     );
+    
+    if (this.delayFiltering) {
+      this.delayTask = new Ext.util.DelayedTask(this.fireChangeEvent, this);
+      this.functionToCall = this.startTimer;
+    } else {
+      this.functionToCall = this.fireChangeEvent;
+    }
+    
     this.functionToCall = (this.delayFiltering) ? this.startTimer : this.fireChangeEvent;
     Ext.each(this.fieldEvents, function(event) {
       this.field.on(event, this.functionToCall, this);
@@ -463,12 +471,7 @@ Ext.ux.grid.FilterRowFilter = Ext.extend(Ext.util.Observable, {
   },
   
   startTimer: function() {
-    clearInterval(this.typingTimerId);
-    var me = this;
-    this.typingTimerId = setInterval(function() {
-      clearInterval(me.typingTimerId);
-      me.fireChangeEvent();
-    }, this.timeToWait);
+    this.delayTask.delay(this.timeToWait);
   },
   
   fireChangeEvent: function() {
